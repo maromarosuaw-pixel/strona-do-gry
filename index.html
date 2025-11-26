@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Strona do gry</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            min-height: 100vh;
+            color: white;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            background: #e94560;
+            padding: 30px;
+            text-align: center;
+            font-size: 24px;
+        }
+
+        .content {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 50px;
+        }
+
+        .game-button {
+            background: #00ff88;
+            color: black;
+            padding: 30px 60px;
+            font-size: 28px;
+            border: none;
+            border-radius: 15px;
+            cursor: pointer;
+            text-decoration: none;
+            font-weight: bold;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .game-button:hover {
+            transform: scale(1.1);
+            box-shadow: 0 0 30px #00ff88;
+        }
+
+        .comments-section {
+            background: #0f0f23;
+            padding: 30px;
+            border-top: 3px solid #e94560;
+        }
+
+        .comments-section h2 {
+            margin-bottom: 20px;
+            color: #e94560;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        #nick-input {
+            width: 150px;
+            padding: 15px;
+            font-size: 16px;
+            border: none;
+            border-radius: 10px;
+            background: #1a1a2e;
+            color: white;
+        }
+
+        #comment-input {
+            flex: 1;
+            padding: 15px;
+            font-size: 16px;
+            border: none;
+            border-radius: 10px;
+            background: #1a1a2e;
+            color: white;
+        }
+
+        #add-comment {
+            background: #e94560;
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        #add-comment:hover {
+            background: #ff6b6b;
+        }
+
+        #comments-list {
+            margin-top: 20px;
+            list-style: none;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        #comments-list li {
+            background: #1a1a2e;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 10px;
+            border-left: 4px solid #00ff88;
+        }
+
+        .comment-nick {
+            color: #00ff88;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .comment-text {
+            margin-bottom: 5px;
+        }
+
+        .comment-time {
+            font-size: 12px;
+            color: #888;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #888;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        🎮 Siema, jest to strona internetowa zrobiona specjalnie pod to żeby przeniosła was na moją grę 🎮
+    </div>
+
+    <div class="content">
+        <a href="TUTAJ_WSTAW_LINK_DO_GRY" class="game-button">
+            ▶ WEJDŹ DO GRY ◀
+        </a>
+    </div>
+
+    <div class="comments-section">
+        <h2>💬 Komentarze (publiczne)</h2>
+        
+        <div class="input-group">
+            <input type="text" id="nick-input" placeholder="Nick..." maxlength="20">
+            <input type="text" id="comment-input" placeholder="Napisz komentarz..." maxlength="500">
+        </div>
+        <button id="add-comment">Dodaj komentarz</button>
+        
+        <ul id="comments-list">
+            <li class="loading">Ładowanie komentarzy...</li>
+        </ul>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
+    <script>
+        // Twój Firebase config
+        const firebaseConfig = {
+            apiKey: "AIzaSyBq6NXHX0wolGaoqtkjB6uQx-Ha8d9DgxY",
+            authDomain: "koomentarze.firebaseapp.com",
+            databaseURL: "https://koomentarze-default-rtdb.firebaseio.com",
+            projectId: "koomentarze",
+            storageBucket: "koomentarze.firebasestorage.app",
+            messagingSenderId: "634169983874",
+            appId: "1:634169983874:web:ff2d7dfc8e7c2e8083859b"
+        };
+
+        // Inicjalizacja Firebase
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const commentsRef = database.ref('comments');
+
+        // Elementy DOM
+        const nickInput = document.getElementById('nick-input');
+        const commentInput = document.getElementById('comment-input');
+        const addButton = document.getElementById('add-comment');
+        const commentsList = document.getElementById('comments-list');
+
+        // Zapamiętaj nick
+        nickInput.value = localStorage.getItem('userNick') || '';
+        nickInput.addEventListener('change', () => {
+            localStorage.setItem('userNick', nickInput.value);
+        });
+
+        // Dodaj komentarz
+        function addComment() {
+            const nick = nickInput.value.trim() || 'Anonim';
+            const text = commentInput.value.trim();
+
+            if (!text) return;
+
+            const now = new Date();
+            const comment = {
+                nick: nick,
+                text: text,
+                time: now.toLocaleString('pl-PL'),
+                timestamp: now.getTime()
+            };
+
+            commentsRef.push(comment);
+            commentInput.value = '';
+            localStorage.setItem('userNick', nick);
+        }
+
+        addButton.addEventListener('click', addComment);
+        commentInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') addComment();
+        });
+
+        // Nasłuchuj na komentarze (real-time)
+        commentsRef.orderByChild('timestamp').on('value', (snapshot) => {
+            commentsList.innerHTML = '';
+
+            const comments = [];
+            snapshot.forEach((child) => {
+                comments.push(child.val());
+            });
+
+            // Od najnowszych
+            comments.reverse();
+
+            if (comments.length === 0) {
+                commentsList.innerHTML = '<li class="loading">Brak komentarzy. Bądź pierwszy!</li>';
+                return;
+            }
+
+            comments.forEach((c) => {
+                const li = document.createElement('li');
+                li.innerHTML = `
+                    <div class="comment-nick">${escapeHtml(c.nick)}</div>
+                    <div class="comment-text">${escapeHtml(c.text)}</div>
+                    <div class="comment-time">${c.time}</div>
+                `;
+                commentsList.appendChild(li);
+            });
+        });
+
+        // Zabezpieczenie przed XSS
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+
+</body>
+</html>
